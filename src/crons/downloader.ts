@@ -1,11 +1,10 @@
-import { UTApi } from "uploadthing/server";
 import { unlinkSync } from "node:fs";
-import { difference } from "remeda";
-
-import { getDesktopLinks } from "./parser";
-import { db } from "../db";
-import { wallpapers, type NewWallpaper } from "../db/schema";
 import { inArray } from "drizzle-orm";
+import { difference } from "remeda";
+import { UTApi } from "uploadthing/server";
+import { db } from "../db";
+import { type NewWallpaper, wallpapers } from "../db/schema";
+import { getDesktopLinks } from "./parser";
 
 export const utapi = new UTApi();
 

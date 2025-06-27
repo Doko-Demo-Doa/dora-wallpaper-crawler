@@ -20,8 +20,7 @@ docker run --name dev-postgres -p 5432:5432 -e POSTGRES_PASSWORD=12345678 -d pos
 
 ```
 DATABASE_URL="postgresql://postgres:12345678@localhost:5432/postgres?schema=public"
-UPLOADTHING_SECRET="YOUR_KEY_HERE"
-UPLOADTHING_APP_ID="YOUR_KEY_HERE"
+UPLOADTHING_TOKEN="YOUR_KEY_HERE"
 ```
 
 4. Add your tables to `src/db/schema/index.ts`.
