@@ -1,5 +1,6 @@
 import { cron, Patterns } from "@elysiajs/cron";
 import { swagger } from "@elysiajs/swagger";
+import { Glob } from "bun";
 import { inArray } from "drizzle-orm";
 import { Elysia } from "elysia";
 import * as R from "remeda";
@@ -39,6 +40,16 @@ const app = new Elysia()
 			.get("/all", async () => {
 				const wallpapersData = await db.select().from(wallpapers);
 				return wallpapersData;
+			})
+			.get("/list-files", async () => {
+				const glob = new Glob("./temp/**/*");
+				const files: string[] = [];
+
+				for (const file of glob.scanSync(".")) {
+					files.push(file);
+				}
+
+				return files;
 			}),
 	)
 	.listen(process.env.PORT ?? 3000);
