@@ -8,6 +8,9 @@ import { getDesktopLinks, getMobileLinks } from "./parser";
 export const utapi = new UTApi();
 
 export async function startParsingAndDownload() {
+	console.info(
+		`Starting to parse and download wallpapers at ${new Date().toUTCString()}`,
+	);
 	const desktopLinks = await getDesktopLinks();
 	const mobileLinks = await getMobileLinks();
 
