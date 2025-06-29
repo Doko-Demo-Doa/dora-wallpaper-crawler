@@ -1,4 +1,3 @@
-import { unlinkSync } from "node:fs";
 import { inArray } from "drizzle-orm";
 import { difference } from "remeda";
 import { UTApi } from "uploadthing/server";
@@ -27,34 +26,20 @@ export async function startParsingAndDownload() {
 		console.info("New links found: ", diff);
 	}
 
-	for (const link of diff) {
-		// Download file
-		const result = await fetch(link);
-		const path = `./temp/${extractFileNameFromUrl(link)}`;
-		await Bun.write(path, result);
-		const fileM = Bun.file(path);
+	const uploadedFiles = await utapi.uploadFilesFromUrl(diff, {
+		acl: "public-read",
+	});
 
-		console.log("Downloaded: ", extractFileNameFromUrl(link));
-
-		// Upload
-		const uploadedFile = await utapi.uploadFiles(
-			new File([fileM], extractFileNameFromUrl(link) || ""),
-			{ acl: "public-read" },
-		);
-
-		const newWallpaper: NewWallpaper = {
-			createdAt: new Date().toUTCString(),
-			fileName: extractFileNameFromUrl(link) || "",
-			isMobile: 0,
-			originalUrl: link,
-			url: uploadedFile.data?.ufsUrl || "",
-		};
-		await db.insert(wallpapers).values(newWallpaper);
-
-		unlinkSync(path);
+	for (const uFile of uploadedFiles) {
+		if (!uFile.error) {
+			const newWallpaper: NewWallpaper = {
+				createdAt: new Date().toUTCString(),
+				fileName: uFile.data?.name || "",
+				isMobile: 0,
+				originalUrl: uFile.data?.ufsUrl || "",
+				url: uFile.data?.ufsUrl || "",
+			};
+			await db.insert(wallpapers).values(newWallpaper);
+		}
 	}
-}
-
-function extractFileNameFromUrl(url: string) {
-	return url.split("/").pop();
 }
