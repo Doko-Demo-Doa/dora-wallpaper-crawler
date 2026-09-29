@@ -1,46 +1,34 @@
-# Bun with Elysia & Drizzle
+# Dora wallpaper crawler
 
-This is a Bun server using Elysia for the API and Drizzle ORM for a Postgres DB. It crawls data from https://dora-world.com/wallpaper and upload it to my personal Uploadthing directory.
+A Go service that serves the wallpaper API and crawls [Dora World's wallpaper page](https://dora-world.com/wallpaper) hourly. New images are uploaded to UploadThing and recorded in PostgreSQL.
 
-## Development
+## Requirements
 
-1. Install dependencies
+- Go 1.24+
+- PostgreSQL
+- `DATABASE_URL`
+- `UPLOADTHING_TOKEN` for uploads (the read API can run without it)
 
-```
-bun install
-```
+Start PostgreSQL for local development:
 
-2. Start a Docker container for the Postgres database
-
-```
+```sh
 docker run --name dev-postgres -p 5432:5432 -e POSTGRES_PASSWORD=12345678 -d postgres
 ```
 
-3. Add the `DATABASE_URL` env variable to a _.env_ file
+Set environment variables, then run:
 
-```
-DATABASE_URL="postgresql://postgres:12345678@localhost:5432/postgres?schema=public"
-UPLOADTHING_TOKEN="YOUR_KEY_HERE"
-```
-
-4. Add your tables to `src/db/schema/index.ts`.
-
-5. Generate migrations
-
-```shell
-bun run generate
+```sh
+export DATABASE_URL='postgresql://postgres:12345678@localhost:5432/postgres'
+export UPLOADTHING_TOKEN='YOUR_KEY_HERE'
+go run .
 ```
 
-6. Run migrations
+The service listens on port `3000` by default. Set `PORT` to change it. It applies the wallpaper table migration at startup and starts a crawl immediately, then repeats hourly.
 
-```shell
-bun run migrate
-```
+## API
 
-7. To start the development server run:
+- `GET /api/` returns desktop wallpaper source URLs that are not yet stored.
+- `GET /api/all` returns stored wallpaper records.
+- `GET /api/list-files` returns files under `./temp`.
 
-```bash
-bun run dev
-```
-
-Open http://localhost:3000/ with your browser to see the result.
+The SQL migration history is in `drizzle/` for reference. Database setup on application startup is handled by the Go service.
