@@ -7,8 +7,8 @@ import (
 )
 
 type Crawler struct {
-	Store  *Store
-	Upload *UploadThing
+	Store         *Store
+	NetworkClient *NetworkClient
 }
 
 func (c *Crawler) RunHourly(ctx context.Context) {
@@ -59,7 +59,7 @@ func (c *Crawler) Crawl(ctx context.Context) error {
 		if known[link] {
 			continue
 		}
-		uploaded, err := c.Upload.UploadFromURL(ctx, link)
+		uploaded, err := c.NetworkClient.UploadFromURL(ctx, link)
 		if err != nil {
 			log.Printf("upload %s: %v", link, err)
 			continue

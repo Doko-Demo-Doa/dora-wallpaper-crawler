@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 	store := &Store{DB: db}
-	crawler := &Crawler{Store: store, Upload: NewUploadThing(os.Getenv("UPLOADTHING_TOKEN"))}
+	crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient()}
 	go crawler.RunHourly(ctx)
 
 	r := chi.NewRouter()
