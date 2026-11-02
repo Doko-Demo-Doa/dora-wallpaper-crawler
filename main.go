@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 	store := &Store{DB: db}
-	// crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient()}
+	crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient()}
 	// go crawler.RunHourly(ctx)
 
 	r := chi.NewRouter()
@@ -51,6 +51,7 @@ func main() {
 		}
 		writeJSON(w, difference(links, known))
 	})
+
 	r.Get("/api/all", func(w http.ResponseWriter, req *http.Request) {
 		rows, err := store.All(req.Context())
 		if err != nil {
@@ -59,6 +60,7 @@ func main() {
 		}
 		writeJSON(w, rows)
 	})
+
 	r.Get("/api/list-files", func(w http.ResponseWriter, req *http.Request) {
 		files := []string{}
 		_ = filepath.Walk("./temp", func(path string, info os.FileInfo, err error) error {
@@ -68,6 +70,13 @@ func main() {
 			return nil
 		})
 		writeJSON(w, files)
+	})
+
+	r.Get("/backdoor/start-crawler", func(w http.ResponseWriter, req *http.Request) {
+		// Implement the logic to start the crawler here
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("Crawler started"))
+		crawler.Crawl(ctx)
 	})
 
 	port := os.Getenv("PORT")
