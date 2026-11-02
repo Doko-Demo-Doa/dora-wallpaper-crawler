@@ -3,20 +3,21 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"time"
 
 	"github.com/asalih/go-box-sdk/box"
 	"github.com/asalih/go-box-sdk/managers"
+	"github.com/asalih/go-box-sdk/networking"
 )
 
 const RootFolderID = "0"
 const DoraWallpaperFolderID = "432219983035"
 const DoraWallpaperFolderName = "DoraWallpaper"
-
-const uploadThingAPI = "https://api.uploadthing.com"
 
 type NetworkClient struct {
 	Uploader   *box.BoxClient
@@ -28,19 +29,25 @@ type UploadedFile struct {
 }
 
 func NewNetworkClient() *NetworkClient {
-	auth := box.NewBoxCcgAuth(box.CcgConfig{
-		ClientID:     os.Getenv("BOX_CLIENT_ID"),
-		ClientSecret: os.Getenv("BOX_CLIENT_SECRET"),
-		EnterpriseID: "",
-	})
+	var auth networking.Authentication
 
-	client := box.NewBoxClient(auth, nil)
+	if developerToken := os.Getenv("BOX_DEVELOPER_TOKEN"); developerToken != "" {
+		auth = box.NewBoxDeveloperTokenAuth(developerToken, box.DeveloperTokenConfig{
+			ClientID:     os.Getenv("BOX_CLIENT_ID"),
+			ClientSecret: os.Getenv("BOX_CLIENT_SECRET"),
+		})
+	}
 
-	return &NetworkClient{Uploader: client}
+	uploader := box.NewBoxClient(auth, nil)
+	downloader := &http.Client{
+		Timeout: 5 * time.Minute,
+	}
+
+	return &NetworkClient{Uploader: uploader, Downloader: downloader}
 }
 
-// UploadFromURL downloads the remote file, then sends it through UploadThing's
-// server side upload API. UploadThing remains responsible for storage/CDN.
+// UploadFromURL downloads the remote file and uploads a copy into the
+// DoraWallpaper folder in Box.
 func (c *NetworkClient) UploadFromURL(ctx context.Context, source string) (UploadedFile, error) {
 	parsed, err := url.Parse(source)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") {
@@ -71,19 +78,19 @@ func (c *NetworkClient) UploadFromURL(ctx context.Context, source string) (Uploa
 	}, nil)
 
 	if err != nil {
+		log.Printf("Upload failed for file %s: %v", filename, err)
 		return UploadedFile{}, fmt.Errorf("Upload failed for file %s", filename)
 	}
 
-	for uFile := range boxUploadedFiles.Entries {
-		if uFile != 0 {
-			fmt.Printf("Uploaded file to Box.net: %s", filename)
-			return UploadedFile{
-				Name: filename,
-				URL:  source,
-			}, nil
-		}
+	if len(boxUploadedFiles.Entries) == 0 {
+		return UploadedFile{}, fmt.Errorf("upload %s: Box returned no file entries", filename)
 	}
 
-	return UploadedFile{}, nil
+	uploaded := boxUploadedFiles.Entries[0]
+	log.Printf("Uploaded file to Box.net: %s (id %s)", uploaded.Name, uploaded.ID)
 
+	return UploadedFile{
+		Name: uploaded.Name,
+		URL:  uploaded.ID,
+	}, nil
 }

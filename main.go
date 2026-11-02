@@ -34,8 +34,8 @@ func main() {
 		log.Fatal(err)
 	}
 	store := &Store{DB: db}
-	crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient()}
-	go crawler.RunHourly(ctx)
+	// crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient()}
+	// go crawler.RunHourly(ctx)
 
 	r := chi.NewRouter()
 	r.Get("/api/", func(w http.ResponseWriter, req *http.Request) {
