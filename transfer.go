@@ -6,12 +6,15 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"time"
 
-	"github.com/asalih/go-box-sdk/box"
-	"github.com/asalih/go-box-sdk/managers"
-	"github.com/asalih/go-box-sdk/networking"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 const RootFolderID = "0"
@@ -19,7 +22,7 @@ const DoraWallpaperFolderID = "432219983035"
 const DoraWallpaperFolderName = "DoraWallpaper"
 
 type NetworkClient struct {
-	Uploader   *box.BoxClient
+	Uploader   *s3.Client
 	Downloader *http.Client
 }
 type UploadedFile struct {
@@ -27,17 +30,32 @@ type UploadedFile struct {
 	URL  string
 }
 
-func NewNetworkClient() *NetworkClient {
-	var auth networking.Authentication
+const CloudFlareR2BucketName = "dora-wallpaper"
 
-	cfg, err := box.JwtConfigFromConfigFile("box_config.json", nil, nil)
+func NewNetworkClient(ctx context.Context) *NetworkClient {
+
+	cloudFlareAccountID := os.Getenv(("CLOUDFLARE_ACCOUNT_ID"))
+	cloudFlareAccessKeyID := os.Getenv("CLOUDFLARE_ACCESS_KEY_ID")
+	cloudFlareAccessKeySecret := os.Getenv("CLOUDFLARE_ACCESS_KEY_SECRET")
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(cloudFlareAccessKeyID, cloudFlareAccessKeySecret, "")),
+		config.WithRegion("auto"), // Required by SDK but not used by R2
+	)
+
 	if err != nil {
-		log.Fatalf("Failed to load Box JWT config: %v", err)
+		log.Fatal(err)
 	}
 
-	auth = box.NewBoxJwtAuth(*cfg)
+	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.BaseEndpoint = aws.String(fmt.Sprintf("https://%s.r2.cloudflarestorage.com", cloudFlareAccountID))
+	})
 
-	uploader := box.NewBoxClient(auth, nil)
+	if client == nil {
+		log.Fatalf("Failed to create S3 client")
+	}
+
+	uploader := client
 	downloader := &http.Client{
 		Timeout: 5 * time.Minute,
 	}
@@ -67,29 +85,38 @@ func (c *NetworkClient) UploadFromURL(ctx context.Context, source string) (Uploa
 	// Extract filename from path
 	filename := path.Base(parsed.Path)
 
-	boxUploadedFiles, err := c.Uploader.Uploads.UploadFile(ctx, &managers.UploadFileRequestBody{
-		Attributes: managers.UploadFileAttributes{
-			Name:   filename,
-			Parent: managers.UploadFileAttributesParent{ID: DoraWallpaperFolderID},
-		},
-		File:         resp.Body,
-		FileFileName: filename,
-	}, nil)
+	_, err = c.Uploader.PutObject(ctx, &s3.PutObjectInput{
+		Bucket:      aws.String(CloudFlareR2BucketName),
+		Key:         aws.String(filename),
+		Body:        resp.Body,
+		ContentType: aws.String("image/jpeg"),
+	})
 
 	if err != nil {
 		log.Printf("Upload failed for file %s: %v", filename, err)
 		return UploadedFile{}, fmt.Errorf("Upload failed for file %s", filename)
 	}
 
-	if len(boxUploadedFiles.Entries) == 0 {
-		return UploadedFile{}, fmt.Errorf("upload %s: Box returned no file entries", filename)
-	}
-
-	uploaded := boxUploadedFiles.Entries[0]
-	log.Printf("Uploaded file to Box.net: %s (id %s)", uploaded.Name, uploaded.ID)
+	log.Printf("Uploaded file to R2: %s", filename)
 
 	return UploadedFile{
-		Name: uploaded.Name,
-		URL:  uploaded.ID,
+		Name: filename,
+		URL:  fmt.Sprintf("https://%s.r2.cloudflarestorage.com/%s", os.Getenv("CLOUDFLARE_ACCOUNT_ID"), filename),
 	}, nil
+}
+
+func (c *NetworkClient) ListFilesInBucket(ctx context.Context) ([]types.Object, error) {
+	listObjectsOutput, err := c.Uploader.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket: aws.String(CloudFlareR2BucketName),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, obj := range listObjectsOutput.Contents {
+		log.Printf("Found object: %s", *obj.Key)
+	}
+
+	return listObjectsOutput.Contents, nil
 }

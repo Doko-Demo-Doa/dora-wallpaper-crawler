@@ -34,7 +34,7 @@ func main() {
 		log.Fatal(err)
 	}
 	store := &Store{DB: db}
-	crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient()}
+	crawler := &Crawler{Store: store, NetworkClient: NewNetworkClient(ctx)}
 	// go crawler.RunHourly(ctx)
 
 	r := chi.NewRouter()
