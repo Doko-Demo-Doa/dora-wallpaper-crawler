@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -76,8 +78,11 @@ func (c *NetworkClient) UploadFromURL(ctx context.Context, source string) (Uploa
 		return UploadedFile{}, err
 	}
 
+	log.Printf("Downloading: %s", source)
+
 	resp, err := c.Downloader.Do(getReq)
 	if err != nil {
+		log.Printf("Download error: %v", err)
 		return UploadedFile{}, err
 	}
 	defer resp.Body.Close()
@@ -85,10 +90,19 @@ func (c *NetworkClient) UploadFromURL(ctx context.Context, source string) (Uploa
 	// Extract filename from path
 	filename := path.Base(parsed.Path)
 
+	fileData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return UploadedFile{}, err
+	}
+
+	if len(fileData) == 0 {
+		return UploadedFile{}, fmt.Errorf("downloaded file is empty for %s", source)
+	}
+
 	_, err = c.Uploader.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(CloudFlareR2BucketName),
 		Key:         aws.String(filename),
-		Body:        resp.Body,
+		Body:        bytes.NewReader(fileData),
 		ContentType: aws.String("image/jpeg"),
 	})
 
