@@ -49,12 +49,12 @@ func (c *NetworkClient) UploadFromURL(ctx context.Context, source string) (Uploa
 
 	getReq, err := http.NewRequestWithContext(ctx, http.MethodGet, source, nil)
 	if err != nil {
-		return UploadedFile{}, nil
+		return UploadedFile{}, err
 	}
 
 	resp, err := c.Downloader.Do(getReq)
 	if err != nil {
-		return UploadedFile{}, nil
+		return UploadedFile{}, err
 	}
 	defer resp.Body.Close()
 

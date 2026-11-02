@@ -55,6 +55,7 @@ func (c *Crawler) Crawl(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	for _, link := range all {
 		if known[link] {
 			continue
@@ -68,6 +69,7 @@ func (c *Crawler) Crawl(ctx context.Context) error {
 			log.Printf("save %s: %v", link, err)
 		}
 	}
+
 	return nil
 }
 
