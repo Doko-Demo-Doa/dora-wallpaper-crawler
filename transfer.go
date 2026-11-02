@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"path"
 	"time"
 
@@ -31,12 +30,12 @@ type UploadedFile struct {
 func NewNetworkClient() *NetworkClient {
 	var auth networking.Authentication
 
-	if developerToken := os.Getenv("BOX_DEVELOPER_TOKEN"); developerToken != "" {
-		auth = box.NewBoxDeveloperTokenAuth(developerToken, box.DeveloperTokenConfig{
-			ClientID:     os.Getenv("BOX_CLIENT_ID"),
-			ClientSecret: os.Getenv("BOX_CLIENT_SECRET"),
-		})
+	cfg, err := box.JwtConfigFromConfigFile("box_config.json", nil, nil)
+	if err != nil {
+		log.Fatalf("Failed to load Box JWT config: %v", err)
 	}
+
+	auth = box.NewBoxJwtAuth(*cfg)
 
 	uploader := box.NewBoxClient(auth, nil)
 	downloader := &http.Client{
